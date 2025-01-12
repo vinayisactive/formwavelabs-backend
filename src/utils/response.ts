@@ -1,11 +1,7 @@
-export const successResponse = (message: string, data: unknown = null) => ({
-  status: "success",
-  message,
-  data,
-});
+type ResponseStatus = 'success' | 'error';
 
-export const errorResponse = ( message: string, details: unknown = null) => ({
-  status: "error",
+export const responseHandler = (status: ResponseStatus, message: string, data: unknown = null) => ({
+  status,
   message,
-  details,
+  ...(status === 'success' ? { data } : { details: data })
 });
