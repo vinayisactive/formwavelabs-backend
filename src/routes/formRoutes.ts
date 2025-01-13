@@ -4,6 +4,7 @@ import {
   createFormNextPage,
   getFormById,
   getFormWithPage,
+  getUserForms,
   submitFormResponse,
   toggleFormStatus,
   updateFormPage,
@@ -13,18 +14,18 @@ import { authMiddleware } from "../middlewares/authMiddleware";
 const formRoutes = new Hono();
 
 formRoutes
-    .post("/", authMiddleware, createForm)                 
+    .post("/", authMiddleware, createForm)     
+    .get("/", authMiddleware, getUserForms)     
     .get("/:formId", getFormById);   
 
 formRoutes 
     .get("/:formId/with-page", getFormWithPage) 
-    .post("/:formId/page", createFormNextPage)   
-    .put("/:formId/page", updateFormPage);           
-
+    .post("/:formId/page", authMiddleware, createFormNextPage)   
+    .put("/:formId/page", authMiddleware, updateFormPage);           
 
 formRoutes
-    .patch("/:formId/status", toggleFormStatus)    
-    .post("/:formId/submissions", submitFormResponse); 
+    .patch("/:formId/status", authMiddleware, toggleFormStatus)    
+    .post("/:formId/submissions", authMiddleware, submitFormResponse); 
 
 
 export default formRoutes;
