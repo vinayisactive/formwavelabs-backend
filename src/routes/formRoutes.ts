@@ -8,11 +8,12 @@ import {
   toggleFormStatus,
   updateFormPage,
 } from "../controllers/formControllers";
+import { authMiddleware } from "../middlewares/authMiddleware";
 
 const formRoutes = new Hono();
 
 formRoutes
-    .post("/", createForm)                 
+    .post("/", authMiddleware, createForm)                 
     .get("/:formId", getFormById);   
 
 formRoutes 
