@@ -22,7 +22,7 @@ model Form {
   id String @id @default(uuid())
   userId String
   title String 
-  description String
+  description String?
   status Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -35,7 +35,7 @@ model FormPage {
   id String @id @default(uuid())
   page Int
   formId String
-  content String 
+  content String? 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   form Form @relation(fields: [formId], references: [id])
