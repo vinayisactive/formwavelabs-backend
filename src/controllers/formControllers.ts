@@ -451,4 +451,54 @@ export const getUserForms = async (c: Context) => {
   };
 };
 
-export const submitFormResponse = async () => {};
+export const submitFormResponse = async (c: Context) => {
+  try {
+
+    const formId = c.req.param("formId");
+    if (!formId) {
+      return c.json(responseHandler("error", "formId is missing"), 400);
+    };
+
+    const body = await c.req.json(); 
+    if(!body){
+      return c.json(
+        responseHandler("error", "Content is missing"),
+        401
+      );
+    }
+
+    const { DATABASE_URL } = c.env;
+    if (!DATABASE_URL) {
+      return c.json(
+        responseHandler("error", "Server configuration error"),
+        500
+      );
+    };
+
+    const db = createClient(DATABASE_URL);
+
+    const submission = await db.submission.create({
+      data: {
+        formId,
+        content: body
+      }
+    }); 
+
+    if(!submission){
+      return c.json(
+        responseHandler("error", "Failed to submit form"),
+        500
+      );
+    }
+
+    return c.json(responseHandler('success', 'Form submitted successfully', submission), 200)
+    
+  } catch (error) {
+    return c.json(
+      responseHandler("error", "Failed to submit form", {
+        error: error instanceof Error ? error.message : "Internal server error",
+      }),
+      500
+    );
+  }
+};
