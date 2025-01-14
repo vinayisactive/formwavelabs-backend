@@ -502,7 +502,7 @@ export const submitFormResponse = async (c: Context) => {
       );
     }
 
-    return c.json(responseHandler('success', 'Form submitted successfully', submission), 200)
+    return c.json(responseHandler('success', 'Form response submitted successfully', submission), 200)
     
   } catch (error) {
     return c.json(
@@ -513,3 +513,65 @@ export const submitFormResponse = async (c: Context) => {
     );
   }
 };
+
+export const getFormResponses = async(c: Context) => {
+  try {
+
+    const user = c.get('user'); 
+
+    const formId = c.req.param("formId");
+    if (!formId) {
+      return c.json(responseHandler("error", "formId is missing"), 400);
+    };
+
+    const { DATABASE_URL } = c.env;
+    if (!DATABASE_URL) {
+      return c.json(
+        responseHandler("error", "Server configuration error"),
+        500
+      );
+    };
+
+    const db = createClient(DATABASE_URL);
+
+    const form = await db.form.findUnique({
+      where: {
+        id: formId,
+      },
+      include: {
+        submissions: true 
+      }
+    });
+
+    if (!form) {
+      return c.json(
+        responseHandler("error", "Form not found"),
+        404
+      );
+    }
+
+    if (form.userId !== user.id) {
+      return c.json(
+        responseHandler("error", "Unauthorized to access this form's submissions"),
+        403
+      );
+    }
+
+    return c.json(responseHandler('success', 'Fetched form responses successfully', {
+      form: {
+        id: form.id,
+        title: form.title,
+        description: form.description
+      },
+      responses: form.submissions
+    } ), 200); 
+    
+  } catch (error) {
+    return c.json(
+      responseHandler("error", "Failed to fetch form responses", {
+        error: error instanceof Error ? error.message : "Internal server error",
+      }),
+      500
+    );
+  }
+} 
