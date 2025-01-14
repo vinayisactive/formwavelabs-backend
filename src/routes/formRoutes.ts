@@ -25,7 +25,7 @@ formRoutes
 
 formRoutes
     .patch("/:formId/status", authMiddleware, toggleFormStatus)    
-    .post("/:formId/submissions", authMiddleware, submitFormResponse); 
+    .post("/:formId/submissions", submitFormResponse); 
 
 
 export default formRoutes;
