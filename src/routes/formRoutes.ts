@@ -3,6 +3,7 @@ import {
   createForm,
   createFormNextPage,
   getFormById,
+  getFormResponses,
   getFormWithPage,
   getUserForms,
   submitFormResponse,
@@ -25,7 +26,8 @@ formRoutes
 
 formRoutes
     .patch("/:formId/status", authMiddleware, toggleFormStatus)    
-    .post("/:formId/submissions", submitFormResponse); 
+    .post("/:formId/submissions", submitFormResponse)
+    .get("/:formId/submissions", authMiddleware, getFormResponses);
 
 
 export default formRoutes;
