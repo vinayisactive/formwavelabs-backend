@@ -467,6 +467,7 @@ export const submitFormResponse = async (c: Context) => {
       );
     }
 
+
     const { DATABASE_URL } = c.env;
     if (!DATABASE_URL) {
       return c.json(
@@ -477,10 +478,20 @@ export const submitFormResponse = async (c: Context) => {
 
     const db = createClient(DATABASE_URL);
 
+    const form = await db.form.findFirst({
+      where: {
+        id: formId
+      }
+    }); 
+
+    if(!form?.status){
+     return c.json(responseHandler('error', 'Form is not currently published'), 403);
+    }
+
     const submission = await db.submission.create({
       data: {
         formId,
-        content: body
+        content: body.content
       }
     }); 
 
