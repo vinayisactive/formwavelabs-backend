@@ -438,6 +438,9 @@ export const getUserForms = async (c: Context) => {
       where: {
         userId: user.id,
       },
+      orderBy: { 
+        createdAt: "desc" 
+      }
     });
 
     return c.json(responseHandler("success", "Fetched user forms", forms), 200);
