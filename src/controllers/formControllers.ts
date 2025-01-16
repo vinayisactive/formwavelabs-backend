@@ -65,6 +65,8 @@ export const createForm = async (c: Context) => {
 
 export const getFormWithPage = async (c: Context) => {
   try {
+    const user = c.get("user");
+
     const p = c.req.query("p");
     if (!p) {
       return c.json(
@@ -96,6 +98,7 @@ export const getFormWithPage = async (c: Context) => {
         id: true,
         title: true,
         description: true,
+        userId: true,
         pages: {
           where: {
             formId: formId,
@@ -113,6 +116,13 @@ export const getFormWithPage = async (c: Context) => {
     if (!form?.id) {
       return c.json(responseHandler("error", `form not found`), 404);
     };
+
+    if(form.userId !== user.id){
+      return c.json(
+        responseHandler("error", "Unauthorized to access this form"),
+        403
+      );
+    }; 
 
     const isPageExists = form.pages.find((pg) => pg.page === parseInt(p));
     if (!isPageExists) {
@@ -199,6 +209,9 @@ export const getFormById = async (c: Context) => {
 
 export const updateFormPage = async (c: Context) => {
   try {
+
+    const user = c.get('user');
+
     const formId = c.req.param("formId");
     if (!formId) {
       return c.json(responseHandler("error", "formId is missing"), 400);
@@ -232,6 +245,19 @@ export const updateFormPage = async (c: Context) => {
 
     const db = createClient(DATABASE_URL);
 
+    const form = await db.form.findFirst({
+      where: {
+        id: formId
+      }
+    }); 
+
+    if(form?.userId !== user.id){
+      return c.json(
+        responseHandler("error", "Unauthorized to update this form"),
+        403
+      );
+    }
+
     const update = await db.formPage.update({
       where: {
         id: body.pageId,
@@ -263,6 +289,9 @@ export const updateFormPage = async (c: Context) => {
 
 export const toggleFormStatus = async (c: Context) => {
   try {
+
+    const user = c.get('user'); 
+    
     const formId = c.req.param("formId");
     if (!formId) {
       return c.json(responseHandler("error", "formId is missing"), 400);
@@ -287,6 +316,13 @@ export const toggleFormStatus = async (c: Context) => {
     if (!form) {
       return c.json(responseHandler("success", "Form does not exists"), 404);
     };
+
+    if (form.userId !== user.id) {
+      return c.json(
+        responseHandler("error", "Unauthorized to update this form"),
+        403
+      );
+    }
 
     const status = !form.status;
 
@@ -327,6 +363,7 @@ export const toggleFormStatus = async (c: Context) => {
 
 export const createFormNextPage = async (c: Context) => {
   try {
+
     const formId = c.req.param("formId");
     if (!formId) {
       return c.json(responseHandler("error", "formId is missing"), 400);

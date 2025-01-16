@@ -20,7 +20,7 @@ formRoutes
     .get("/:formId", getFormById);   
 
 formRoutes 
-    .get("/:formId/with-page", getFormWithPage) 
+    .get("/:formId/with-page", authMiddleware, getFormWithPage) 
     .post("/:formId/page", authMiddleware, createFormNextPage)   
     .put("/:formId/page", authMiddleware, updateFormPage);           
 
