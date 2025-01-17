@@ -48,22 +48,6 @@ export const signUp = async (c: Context) => {
       return c.json( responseHandler("error", "Failed to create user"), 500 );
     };
 
-    const oneMonthInSeconds: number = 30 * 24 * 60 * 60;
-    const currentTime: number = Math.floor(Date.now() / 1000);
-    const tokenExp: number = currentTime + oneMonthInSeconds;
-
-    const token = await sign({ id: user.id, email: user.email, exp: tokenExp }, JWT_SECRET);
-    if (!token) {
-      return c.json( responseHandler('error', "Failed to create token"), 500);
-    }
-
-    setCookie(c, "token", token, {
-      secure: true,
-      httpOnly: true,
-      sameSite: 'Lax',
-      expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    });
-
     return c.json(responseHandler("success", "User created successfully"), 200);
 
   } catch (error) {
@@ -106,7 +90,6 @@ export const signIn = async(c: Context) => {
 
         const isPasswordCorrect = await verifyPassword(password, user?.password); 
 
-        console.log(isPasswordCorrect); 
         if(!isPasswordCorrect){
             return c.json(responseHandler('error', 'Password is incorrect'), 401); 
         }; 
@@ -123,8 +106,9 @@ export const signIn = async(c: Context) => {
         setCookie(c, "token", token, {
             secure: true, 
             httpOnly: true, 
-            sameSite: 'Lax',
-            expires:  new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            sameSite: 'None',
+            path: "/",
+            maxAge:  60 * 60 * 24 * 7,
         }); 
 
         return c.json(responseHandler('success', 'User logged in successfully'), 200); 

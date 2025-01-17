@@ -5,11 +5,12 @@ import { cors } from 'hono/cors';
 const app = new Hono()
 
 app.use(
-    '*',
+    '/api/*',
     cors({
-      origin: '*',
-      allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-      allowHeaders: ['Content-Type', 'Authorization'],
+      origin: ['https://formwavelabs-frontend.vercel.app', 'http://localhost:3000'], 
+      credentials: true,  
+      allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH' ,'OPTIONS'], 
+      allowHeaders: ['Content-Type', 'Authorization'], 
     })
   );
 
