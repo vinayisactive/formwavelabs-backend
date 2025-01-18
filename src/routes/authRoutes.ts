@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { checkAuth, signIn, signUp } from "../controllers/authControllers";
+import { checkAuth, logout, signIn, signUp } from "../controllers/authControllers";
 import { authMiddleware } from "../middlewares/authMiddleware";
 
 const authRouter = new Hono();
@@ -7,6 +7,7 @@ const authRouter = new Hono();
 authRouter
     .post("/sign-up", signUp)    
     .post("/sign-in", signIn)  
-    .get("/check-auth",authMiddleware, checkAuth);
+    .get("/check-auth",authMiddleware, checkAuth)
+    .post('/logout', authMiddleware, logout); 
 
 export default authRouter;

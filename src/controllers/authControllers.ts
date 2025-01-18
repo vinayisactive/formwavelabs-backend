@@ -3,7 +3,7 @@ import { signInSchema, signUpSchema } from "../utils/zodSchemas";
 import { responseHandler } from "../utils/response";
 import { createClient } from "../db/database";
 import { sign } from "hono/jwt";
-import { setCookie } from "hono/cookie";
+import { setCookie, deleteCookie } from "hono/cookie";
 import { hashPassword, verifyPassword } from "../utils/hast"
 
 export const signUp = async (c: Context) => {
@@ -132,4 +132,23 @@ export const checkAuth = async(c: Context) => {
             error: error instanceof Error ? error.message : 'Internal server error'
         }))
     }
+}
+
+export const logout = async(c: Context) => {
+  try {
+    
+    const user = await c.get('user'); 
+    if(!user){
+      return
+    }
+
+    deleteCookie(c, 'token'); 
+
+    return c.json(responseHandler('success', 'User logout successfully'), 200); 
+    
+  } catch (error) {
+    return c.json(responseHandler('error', 'Failed to logout user', {
+      error: error instanceof Error ? error.message : 'Internal server error'
+  }))
+  }
 }
