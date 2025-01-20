@@ -6,6 +6,10 @@ import { sign } from "hono/jwt";
 import { setCookie, deleteCookie } from "hono/cookie";
 import { hashPassword, verifyPassword } from "../utils/hast"
 
+
+const COOKIE_NAME = 'accessToken'
+const TOKEN_EXPIRY = 7 * 24 * 60 * 60
+
 export const signUp = async (c: Context) => {
   try {
 
@@ -94,22 +98,24 @@ export const signIn = async(c: Context) => {
             return c.json(responseHandler('error', 'Password is incorrect'), 401); 
         }; 
 
-        const oneMonthInSeconds : number = 30 * 24 * 60 * 60;
-        const currentTime : number = Math.floor(Date.now() / 1000);
-        const tokenExp : number =  currentTime + oneMonthInSeconds; 
+        const token = await sign({ 
+          email: user.email, 
+          id: user.id, 
+          exp: Math.floor(Date.now() / 1000) + TOKEN_EXPIRY 
+        }, JWT_SECRET); 
 
-        const token = await sign({ email: user.email, id: user.id, exp: tokenExp }, JWT_SECRET); 
         if(!token){
             c.json(responseHandler('error', 'Failed to create token'), 500);
         }; 
 
-        setCookie(c, "token", token, {
-            secure: true, 
-            httpOnly: true, 
-            sameSite: 'None',
-            path: "/",
-            maxAge:  60 * 60 * 24 * 7,
-        }); 
+        setCookie(c, COOKIE_NAME, token, {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'None',
+          path: '/',
+          maxAge: TOKEN_EXPIRY
+        })
+        
 
         return c.json(responseHandler('success', 'User logged in successfully'), 200); 
 
@@ -124,8 +130,8 @@ export const signIn = async(c: Context) => {
 export const checkAuth = async(c: Context) => {
     try {
 
-        const user = await c.get('user'); 
-        return c.json(responseHandler('success', "Authorized User", user), 200); 
+      const user = await c.get('user'); 
+      return c.json(responseHandler('success', "Authorized User", user), 200); 
 
     } catch (error) {
         return c.json(responseHandler('error', 'Failed to check auth status', {
@@ -136,15 +142,19 @@ export const checkAuth = async(c: Context) => {
 
 export const logout = async(c: Context) => {
   try {
-    
-    const user = await c.get('user'); 
-    if(!user){
-      return
-    }
 
-    deleteCookie(c, 'token'); 
+    deleteCookie(c, COOKIE_NAME, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'None',
+      path: '/',
+    });
 
-    return c.json(responseHandler('success', 'User logout successfully'), 200); 
+    c.header('Access-Control-Allow-Credentials', 'true');
+
+    return c.json(responseHandler('success', 'User logout successfully', { 
+      isAuth: false
+    }), 200);
     
   } catch (error) {
     return c.json(responseHandler('error', 'Failed to logout user', {
