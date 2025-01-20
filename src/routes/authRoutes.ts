@@ -8,6 +8,6 @@ authRouter
     .post("/sign-up", signUp)    
     .post("/sign-in", signIn)  
     .get("/check-auth",authMiddleware, checkAuth)
-    .post('/logout', authMiddleware, logout); 
+    .post('/logout',authMiddleware, logout); 
 
 export default authRouter;

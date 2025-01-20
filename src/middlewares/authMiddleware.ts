@@ -6,7 +6,7 @@ import { createClient } from "../db/database";
 
 export const authMiddleware = async (c: Context, next: Next) => {
   try {
-    const token = getCookie(c, "token");
+    const token = getCookie(c, "accessToken");
     if (!token) {
       return c.json(responseHandler("error", "Token is missing", {isAuth: false}), 401);
     }
