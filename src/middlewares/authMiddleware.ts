@@ -1,15 +1,20 @@
 import { Context, Next } from "hono";
-import { getCookie } from "hono/cookie";
 import { responseHandler } from "../utils/response";
 import { verify } from "hono/jwt";
 import { createClient } from "../db/database";
 
 export const authMiddleware = async (c: Context, next: Next) => {
   try {
-    const token = getCookie(c, "accessToken");
-    if (!token) {
-      return c.json(responseHandler("error", "Token is missing", {isAuth: false}), 401);
+
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return c.json(
+        responseHandler("error", "Authorization header missing or invalid", { isAuth: false }),
+        401
+      );
     }
+
+    const token = authHeader.split(' ')[1];
 
     const { DATABASE_URL, JWT_SECRET } = c.env;
     if (!DATABASE_URL || !JWT_SECRET) {
@@ -45,13 +50,14 @@ export const authMiddleware = async (c: Context, next: Next) => {
     });
 
     await next();
+
   } catch (error) {
     return c.json(
       responseHandler("error", "Authentication error", {
         error: error instanceof Error ? error.message : "Internal server error",
         isAuth: false
       }),
-      500
+      401
     );
   }
 };
