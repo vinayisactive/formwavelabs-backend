@@ -99,6 +99,7 @@ export const getFormWithPage = async (c: Context) => {
         title: true,
         description: true,
         userId: true,
+        status: true,
         pages: {
           where: {
             formId: formId,

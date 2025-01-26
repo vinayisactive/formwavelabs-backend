@@ -3,7 +3,6 @@ import { signInSchema, signUpSchema } from "../utils/zodSchemas";
 import { responseHandler } from "../utils/response";
 import { createClient } from "../db/database";
 import { sign } from "hono/jwt";
-import { setCookie, deleteCookie } from "hono/cookie";
 import { hashPassword, verifyPassword } from "../utils/hast"
 
 
@@ -108,16 +107,15 @@ export const signIn = async(c: Context) => {
             c.json(responseHandler('error', 'Failed to create token'), 500);
         }; 
 
-        setCookie(c, COOKIE_NAME, token, {
-          httpOnly: true,
-          secure: true,
-          sameSite: 'None',
-          path: '/',
-          maxAge: TOKEN_EXPIRY
-        })
         
-
-        return c.json(responseHandler('success', 'User logged in successfully'), 200); 
+        return c.json(responseHandler('success', 'User logged in successfully', {
+          accessToken : token, 
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name
+          }
+        }), 200); 
 
     } catch (error) {
         return c.json(responseHandler('error', 'Failed to sing-in', {
@@ -143,14 +141,7 @@ export const checkAuth = async(c: Context) => {
 export const logout = async(c: Context) => {
   try {
 
-    deleteCookie(c, COOKIE_NAME, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'None',
-      path: '/',
-    });
 
-    c.header('Access-Control-Allow-Credentials', 'true');
 
     return c.json(responseHandler('success', 'User logout successfully', { 
       isAuth: false
