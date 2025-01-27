@@ -124,32 +124,3 @@ export const signIn = async(c: Context) => {
     )
     }
 }
-
-export const checkAuth = async(c: Context) => {
-    try {
-
-      const user = await c.get('user'); 
-      return c.json(responseHandler('success', "Authorized User", user), 200); 
-
-    } catch (error) {
-        return c.json(responseHandler('error', 'Failed to check auth status', {
-            error: error instanceof Error ? error.message : 'Internal server error'
-        }))
-    }
-}
-
-export const logout = async(c: Context) => {
-  try {
-
-
-
-    return c.json(responseHandler('success', 'User logout successfully', { 
-      isAuth: false
-    }), 200);
-    
-  } catch (error) {
-    return c.json(responseHandler('error', 'Failed to logout user', {
-      error: error instanceof Error ? error.message : 'Internal server error'
-  }))
-  }
-}
