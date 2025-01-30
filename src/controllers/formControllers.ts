@@ -125,6 +125,12 @@ export const getFormWithPage = async (c: Context) => {
       );
     }; 
 
+    const pageCount = await db.formPage.count({
+      where: {
+        formId: formId
+      }
+    });
+
     const isPageExists = form.pages.find((pg) => pg.page === parseInt(p));
     if (!isPageExists) {
       return c.json(
@@ -134,7 +140,10 @@ export const getFormWithPage = async (c: Context) => {
     };
 
     return c.json(
-      responseHandler("success", `page ${p} fetched successfully`, form),
+      responseHandler("success", `page ${p} fetched successfully`, {
+        ...form,
+        totalPages: pageCount
+      }),
       200
     );
   } catch (error) {
@@ -208,7 +217,7 @@ export const getFormById = async (c: Context) => {
   };
 };
 
-export const updateFormPage = async (c: Context) => {
+export const updatePage = async (c: Context) => {
   try {
 
     const user = c.get('user');
@@ -362,7 +371,102 @@ export const toggleFormStatus = async (c: Context) => {
   };
 };
 
-export const createFormNextPage = async (c: Context) => {
+export const createNextPage = async(c: Context) => {
+  try {
+    const formId = c.req.param('formId');
+    if(!formId){
+      return c.json(responseHandler('error', "formId is missing"), 400);
+    }
+
+    const p = c.req.query("p");
+    if (!p) {
+      return c.json(
+        responseHandler("error", "page (?p) query is missing"),
+        400
+      );
+    };
+
+    const { DATABASE_URL } = c.env;
+    if (!DATABASE_URL) {
+      return c.json(
+        responseHandler("error", "Server configuration error"),
+        500
+      );
+    };
+
+    const db = createClient(DATABASE_URL);
+
+    const page = await db.formPage.create({
+      data: {
+        formId,
+        page: parseInt(p) + 1,
+      },
+      select: {
+        formId: true,
+        id: true,
+        page: true,
+      },
+    });
+
+    if(!page){
+      return c.json(responseHandler('error', "Failed to create next page"), 500);
+    }
+
+    return c.json(responseHandler('success', 'Next page created successfully', page), 200);
+
+  } catch (error) {
+    return c.json(responseHandler('error', 'Failed to create next page'), 500);
+  }
+}
+
+export const getNextPage = async(c: Context) => {
+  try {
+    const formId = c.req.param('formId');
+    if(!formId){
+      return c.json(responseHandler('error', "formId is missing"), 400);
+    }
+
+    const p = c.req.query("p");
+    if (!p) {
+      return c.json(
+        responseHandler("error", "page (?p) query is missing"),
+        400
+      );
+    };
+
+    const { DATABASE_URL } = c.env;
+    if (!DATABASE_URL) {
+      return c.json(
+        responseHandler("error", "Server configuration error"),
+        500
+      );
+    };
+
+    const db = createClient(DATABASE_URL);
+
+    const nextPage = await db.formPage.findFirst({
+      where: {
+        formId: formId,
+        page : parseInt(p) + 1
+      },
+      select: {
+        id: true,
+        page: true,
+        formId: true,
+      }
+    }); 
+
+    if(!nextPage){
+      return c.json(responseHandler('error', 'Failed to fetch next page'), 500);
+    }
+
+    return c.json(responseHandler('success', "fetch next page successfully", nextPage), 200);
+  } catch (error) {
+      return c.json(responseHandler('error', "Failed to fetch next page"), 500);
+  }
+}
+
+export const saveAndFetchNext = async (c: Context) => {
   try {
 
     const formId = c.req.param("formId");
@@ -424,30 +528,15 @@ export const createFormNextPage = async (c: Context) => {
       select: {
         id: true,
         page: true,
-        content: true,
-      },
+        formId: true
+      }
     });
 
-    if (nextPage) {
-      return c.json(
-        responseHandler("success", "Next page fetched", nextPage),
-        200
-      );
+    if (!nextPage) {
+      return c.json(responseHandler("error", "Failed to fetch next page"), 500);
     };
 
-    const page = await db.formPage.create({
-      data: {
-        formId,
-        page: parseInt(p) + 1,
-      },
-      select: {
-        id: true,
-        page: true,
-        content: true,
-      },
-    });
-
-    return c.json(responseHandler("success", "Next page created", page), 201);
+    return c.json(responseHandler("success", "Next page fetched successfully", nextPage), 201);
   } catch (error) {
     return c.json(
       responseHandler("error", "Failed to create next page", {
