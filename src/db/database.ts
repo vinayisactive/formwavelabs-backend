@@ -7,3 +7,12 @@ export const createClient = (databaseUrl: string) => {
     }).$extends(withAccelerate()); 
 }; 
 
+const globalForPrisma = globalThis as unknown as { __db?: ReturnType<typeof createClient> };
+
+export const getDatabase = (databaseUrl: string) => {
+    if(!globalForPrisma.__db){
+        globalForPrisma.__db = createClient(databaseUrl);
+    }
+
+    return globalForPrisma.__db; 
+};
