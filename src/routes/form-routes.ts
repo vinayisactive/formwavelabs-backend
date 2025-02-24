@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import {
   createForm,
-  saveAndFetchNext,
+//   saveAndFetchNext,
   getFormById,
   getFormResponses,
   getFormWithPage,
@@ -11,13 +11,13 @@ import {
   updatePage,
   createNextPage,
   getNextPage,
-} from "../controllers/formControllers";
-import { authMiddleware } from "../middlewares/authMiddleware";
+} from "../controllers/form-controllers";
+import { authMiddleware } from "../middlewares/auth-middleware";
 
 const formRoutes = new Hono();
 
 formRoutes
-    .post("/", authMiddleware, createForm)     
+    .post("/:workspaceId", authMiddleware, createForm)     
     .get("/", authMiddleware, getUserForms)     
     .get("/:formId", getFormById);   
 
@@ -28,7 +28,7 @@ formRoutes
 formRoutes
     .post("/:formId/page/next", authMiddleware, createNextPage)
     .get("/:formId/page/next", authMiddleware, getNextPage)
-    .patch("/:formId/page/next", authMiddleware, saveAndFetchNext);
+    // .patch("/:formId/page/next", authMiddleware, saveAndFetchNext);
 
 formRoutes
     .patch("/:formId/status", authMiddleware, toggleFormStatus)    
