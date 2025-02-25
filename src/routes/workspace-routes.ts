@@ -1,13 +1,42 @@
 import { Hono } from "hono";
 import { authMiddleware } from "../middlewares/auth-middleware";
-import { createWorkspace, getWorkspace } from "../controllers/workspace-controllers";
+import {
+  createWorkspace,
+  deleteWorkspace,
+  getWorkspace,
+  getWorkspaces,
+  updateWorkspace,
+} from "../controllers/workspace-controllers";
+import {
+  createForm,
+  createNextPage,
+  deleteForm,
+  getFormResponses,
+  getFormWithPage,
+  toggleFormStatus,
+  updatePage,
+} from "../controllers/form-controllers";
 
-const workspaceRouter = new Hono(); 
+const workspaceRoutes = new Hono();
+const formSubRoutes = new Hono();
 
-workspaceRouter
-.post("/", authMiddleware, createWorkspace)
-.get("/:workspaceId", authMiddleware, getWorkspace);
+workspaceRoutes
+  .use("*", authMiddleware)
+  .post("/", createWorkspace)
+  .get("/", getWorkspaces)
+  .get("/:workspaceId", getWorkspace)
+  .patch("/:workspaceId", updateWorkspace)
+  .delete("/:workspaceId", deleteWorkspace);
 
+formSubRoutes
+  .post("/", createForm)
+  .delete("/:formId", deleteForm)
+  .patch("/:formId/status", toggleFormStatus)
+  .get("/:formId/responses", getFormResponses)
+  .get("/:formId/pages", getFormWithPage)
+  .patch("/:formId/pages", updatePage)
+  .post("/:formId/pages/next", createNextPage);
 
+workspaceRoutes.route("/:workspaceId/forms", formSubRoutes);
 
-export default workspaceRouter; 
+export default workspaceRoutes;
