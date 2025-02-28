@@ -3,6 +3,7 @@ import { withGlobalErrorHandler } from "../utils/global-error-handler";
 import { handleResponse } from "../utils/response-handler";
 import { getDatabase } from "../db/database";
 import { v4 as uuidv4 } from "uuid";
+import ExtError from "../utils/ext-error";
 
 export const createWorkspace = withGlobalErrorHandler(async (c: Context) => {
   const user = c.get("user");
@@ -339,7 +340,10 @@ export const inviteMember = withGlobalErrorHandler(async (c: Context) => {
     );
   }
 
-  if(!email ||  !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+  if (
+    !email ||
+    !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)
+  ) {
     return c.json(
       handleResponse("error", "Invalid input: Email is invalid or missing."),
       400
@@ -349,6 +353,13 @@ export const inviteMember = withGlobalErrorHandler(async (c: Context) => {
   if (!role) {
     return c.json(
       handleResponse("error", "Invalid input: Role is missing."),
+      400
+    );
+  }
+
+  if (user.email === email) {
+    return c.json(
+      handleResponse("error", "Invalid operation: Cannot invite yourself."),
       400
     );
   }
@@ -366,98 +377,90 @@ export const inviteMember = withGlobalErrorHandler(async (c: Context) => {
 
   const db = getDatabase(DATABASE_URL);
 
-  const member = await db.workspaceMember.findFirst({
-    where: {
-      workspaceId,
-      userId: user.id,
-    },
-  });
+  const invitation = await db.$transaction(async (t) => {
+    const member = await t.workspaceMember.findFirst({
+      where: {
+        workspaceId,
+        userId: user.id,
+      },
+    });
 
-  if (!member) {
-    return c.json(
-      handleResponse(
-        "error",
-        "Unauthorized: You are not a member of this workspace."
-      ),
-      403
-    );
-  }
-
-  if (!["OWNER", "ADMIN"].includes(member.role)) {
-    return c.json(
-      handleResponse(
-        "error",
-        "Forbidden: Insufficient permissions to invite members."
-      ),
-      403
-    );
-  }
-
-  const existingUser = await db.user.findFirst({
-    where: {
-      email,
-    },
-    select: {
-      id: true,
-      email: true,
-    },
-  });
-
-
-  if (!existingUser) {
-    return c.json(
-      handleResponse("error", "Application: Cannot invite, user does not exist."),
-      400
-    );
-  }
-
-  const existingValidInvitation  = await db.invitation.findFirst({
-    where: {
-      email,
-      workspaceId,
-      expiresAt: {gt: new Date()}
-    },
-    select: {
-      id: true,
-      expiresAt: true
-    },
-  });
-
-  if (existingValidInvitation) {
-    return c.json(
-      handleResponse(
-        "error",
-        "Appliation: Active invitation already exists for this user."
-      ),
-      409
-    );
-  } 
-
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-  const invitation = await db.invitation.create({
-    data: {
-      email,
-      userId: existingUser.id,
-      role,
-      token : uuidv4(),
-      expiresAt,
-      workspaceId,
-    },
-    select: {
-      id: true,
-      email: true,
-      workspaceId: true,
-      status: true,
+    if (!member) {
+      throw new ExtError(
+        "Unauthorized: You are not a member of this workspace",
+        403
+      );
     }
-  });
 
-  if (!invitation) {
-    return c.json(
-      handleResponse("error", "Server: Failed to create invitation."),
-      500
-    );
-  }
+    if (!["OWNER", "ADMIN"].includes(member.role)) {
+      throw new ExtError(
+        "Forbidden: Insufficient permissions to invite members.",
+        409
+      );
+    }
+
+    const existingUser = await t.user.findFirst({
+      where: {
+        email,
+      },
+      select: {
+        id: true,
+        email: true,
+      },
+    });
+
+    if (!existingUser) {
+      throw new ExtError("Cannot invite: User does not exist", 400);
+    }
+
+    const isAlreadyWorkspaceMember = await t.workspaceMember.findFirst({
+      where: {
+        userId: existingUser.id,
+        workspaceId
+      }
+    }); 
+
+    if(isAlreadyWorkspaceMember){
+      throw new ExtError("Applicaton: User is already a member of this workspace.", 500);
+    }
+
+    const existingValidInvitation = await t.invitation.findFirst({
+      where: {
+        email,
+        workspaceId,
+        status: "PENDING",
+        expiresAt: { gt: new Date() },
+      },
+      select: {
+        id: true,
+        expiresAt: true,
+        status: true,
+      },
+    });
+
+    if (existingValidInvitation) {
+      throw new ExtError("Active invitation already exists for this user", 409);
+    }
+
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    return await t.invitation.create({
+      data: {
+        email,
+        userId: existingUser.id,
+        role,
+        token: uuidv4(),
+        expiresAt,
+        workspaceId,
+      },
+      select: {
+        id: true,
+        email: true,
+        workspaceId: true,
+        status: true,
+      },
+    });
+  });
 
   return c.json(
     handleResponse(
