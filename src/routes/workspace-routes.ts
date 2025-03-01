@@ -6,6 +6,8 @@ import {
   getWorkspace,
   getWorkspaces,
   inviteMember,
+  leaveWorkspace,
+  removeMember,
   updateWorkspace,
 } from "../controllers/workspace-controllers";
 import {
@@ -30,6 +32,8 @@ workspaceRoutes
   .delete("/:workspaceId", deleteWorkspace)
 
   .post("/:workspaceId/invite", inviteMember)
+  .delete("/:workspaceId/leave", leaveWorkspace)
+  .delete("/:workspaceId/remove/:userId", removeMember)
 
 formSubRoutes
   .post("/", createForm)
