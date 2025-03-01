@@ -416,12 +416,15 @@ export const inviteMember = withGlobalErrorHandler(async (c: Context) => {
     const isAlreadyWorkspaceMember = await t.workspaceMember.findFirst({
       where: {
         userId: existingUser.id,
-        workspaceId
-      }
-    }); 
+        workspaceId,
+      },
+    });
 
-    if(isAlreadyWorkspaceMember){
-      throw new ExtError("Applicaton: User is already a member of this workspace.", 500);
+    if (isAlreadyWorkspaceMember) {
+      throw new ExtError(
+        "Applicaton: User is already a member of this workspace.",
+        500
+      );
     }
 
     const existingValidInvitation = await t.invitation.findFirst({
@@ -468,6 +471,150 @@ export const inviteMember = withGlobalErrorHandler(async (c: Context) => {
       "Application: Invitation sent successfully.",
       invitation
     ),
+    200
+  );
+});
+
+export const leaveWorkspace = withGlobalErrorHandler(async (c: Context) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
+
+  if (!workspaceId) {
+    return c.json(
+      handleResponse("error", "Missing param: workspace ID required."),
+      400
+    );
+  }
+
+  const { DATABASE_URL } = c.env;
+  if (!DATABASE_URL) {
+    return c.json(
+      handleResponse(
+        "error",
+        "Server misconfiguration: Missing database URL or RESEND key."
+      ),
+      500
+    );
+  }
+
+  const db = getDatabase(DATABASE_URL);
+
+  await db.$transaction(async (t) => {
+    const member = await t.workspaceMember.findFirst({
+      where: {
+        workspaceId,
+        userId: user.id,
+      },
+    });
+
+    if (!member) {
+      throw new ExtError(
+        "Unauthorized: You are not a member of this workspace",
+        403
+      );
+    }
+
+    if (member.role === "OWNER") {
+      throw new ExtError(
+        "Cannot leave: Ownership must be transferred before leaving.",
+        403
+      );
+    }
+
+    await t.workspaceMember.delete({
+      where: {
+        id: member.id,
+      },
+    });
+  });
+
+  return c.json(
+    handleResponse("success", "Application: Successfully left the workspace."),
+    200
+  );
+});
+
+export const removeMember = withGlobalErrorHandler(async (c: Context) => {
+  const user = c.get("user");
+  const userToRemoveId = c.req.param("userId");
+  const workspaceId = c.req.param("workspaceId");
+
+  if (!userToRemoveId) {
+    return c.json(
+      handleResponse("error", "Missing param: User ID of member required."),
+      400
+    );
+  }
+
+  if (!workspaceId) {
+    return c.json(
+      handleResponse("error", "Missing param: workspace ID required."),
+      400
+    );
+  }
+
+  const { DATABASE_URL } = c.env;
+  if (!DATABASE_URL) {
+    return c.json(
+      handleResponse(
+        "error",
+        "Server misconfiguration: Missing database URL or RESEND key."
+      ),
+      500
+    );
+  }
+
+  const db = getDatabase(DATABASE_URL);
+
+  await db.$transaction(async (t) => {
+    const member = await t.workspaceMember.findFirst({
+      where: {
+        workspaceId,
+        userId: user.id,
+      },
+    });
+
+    if (!member) {
+      throw new ExtError(
+        "Unauthorized: You are not a member of this workspace",
+        403
+      );
+    }
+
+    if (!["OWNER", "ADMIN"].includes(member.role)) {
+      throw new ExtError(
+        "Forbidden: Insufficient permissions to remove members.",
+        403
+      );
+    }
+
+    const memberToRemove = await t.workspaceMember.findFirst({
+      where: {
+        userId: userToRemoveId,
+        workspaceId,
+      },
+    });
+
+    if (!memberToRemove) {
+      throw new ExtError("Application: User isn't a member of workspace.", 404);
+    }
+
+    if (memberToRemove.role === "OWNER") {
+      throw new ExtError(
+        "Application: Can't remove Owner of the workspace.",
+        403
+      );
+    }
+
+    await t.workspaceMember.delete({
+      where: {
+        id: memberToRemove.id,
+      },
+    });
+  });
+
+  return c.json(
+    handleResponse("success", "Application: Successfully removed the member."),
     200
   );
 });
