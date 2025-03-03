@@ -105,6 +105,12 @@ export const getWorkspace = withGlobalErrorHandler(async (c: Context) => {
           id: true,
           title: true,
           status: true,
+          _count:{
+            select : {
+              pages: true,
+              submissions: true,
+            }
+          },
           description: true,
           createdAt: true,
         },
@@ -474,6 +480,51 @@ export const inviteMember = withGlobalErrorHandler(async (c: Context) => {
     200
   );
 });
+
+export const getMemberRole = withGlobalErrorHandler(async(c: Context) => {
+  const user = c.get("user"); 
+  const workspaceId = c.req.param("workspaceId"); 
+
+  if (!workspaceId) {
+    return c.json(
+      handleResponse("error", "Missing param: workspace ID required."),
+      400
+    );
+  }
+
+  const { DATABASE_URL } = c.env;
+  if (!DATABASE_URL) {
+    return c.json(
+      handleResponse(
+        "error",
+        "Server misconfiguration: Missing database URL or RESEND key."
+      ),
+      500
+    );
+  }
+
+  const db = getDatabase(DATABASE_URL);
+
+  const member = await db.workspaceMember.findFirst({
+    where: {
+      workspaceId,
+      userId: user.id
+    }
+  }); 
+
+
+  if (!member) {
+    return c.json(handleResponse(
+      "error", 
+      "Unauthorized: You are not a member of this workspace",
+      403
+    )); 
+  }
+
+  const role = member.role; 
+
+  return c.json(handleResponse("success", "Application: Role fetched successfully.", { role }), 200);
+})
 
 export const leaveWorkspace = withGlobalErrorHandler(async (c: Context) => {
   const user = c.get("user");
