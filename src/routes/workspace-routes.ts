@@ -3,6 +3,7 @@ import { authMiddleware } from "../middlewares/auth-middleware";
 import {
   createWorkspace,
   deleteWorkspace,
+  getMemberRole,
   getWorkspace,
   getWorkspaces,
   inviteMember,
@@ -31,6 +32,7 @@ workspaceRoutes
   .patch("/:workspaceId", updateWorkspace)
   .delete("/:workspaceId", deleteWorkspace)
 
+  .get("/:workspaceId/member/role", getMemberRole)
   .post("/:workspaceId/invite", inviteMember)
   .delete("/:workspaceId/leave", leaveWorkspace)
   .delete("/:workspaceId/remove/:userId", removeMember)
