@@ -5,6 +5,7 @@ import {
   deleteWorkspace,
   getMemberRole,
   getWorkspace,
+  getWorkspaceMember,
   getWorkspaces,
   inviteMember,
   leaveWorkspace,
@@ -32,6 +33,7 @@ workspaceRoutes
   .patch("/:workspaceId", updateWorkspace)
   .delete("/:workspaceId", deleteWorkspace)
 
+  .get("/:workspaceId/members", getWorkspaceMember)
   .get("/:workspaceId/member/role", getMemberRole)
   .post("/:workspaceId/invite", inviteMember)
   .delete("/:workspaceId/leave", leaveWorkspace)

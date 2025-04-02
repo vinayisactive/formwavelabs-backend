@@ -93,6 +93,12 @@ model Form {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   pages FormPage[]
   submissions Submission[]
+  visits FormVisit[]
+  analyticsSummary FormAnalyticsSummary? 
+
+  @@index([workspaceId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model FormPage {
@@ -104,6 +110,9 @@ model FormPage {
   updatedAt DateTime @updatedAt
 
   form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId])
+  @@index([page, formId])
 }
 
 model Submission {
@@ -111,6 +120,37 @@ model Submission {
   formId String
   content String
   createdAt DateTime @default(now())
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+    
+  @@index([formId])
+  @@index([createdAt])
+}
+
+enum DeviceType {
+  MOBILE
+  DESKTOP
+}
+
+model FormVisit {
+  id String @id @default(uuid())
+  formId String 
+  deviceType DeviceType
+  createdAt DateTime @default(now())
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+   @@index([formId])
+  @@index([createdAt])
+  @@index([formId, deviceType])
+}
+
+model FormAnalyticsSummary {
+  id String @id @default(uuid())
+  formId String  @unique
+  totalVisits Int  @default(0)
+  mobileVisits Int @default(0)
+  desktopVisits Int @default(0)
 
   form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
 }

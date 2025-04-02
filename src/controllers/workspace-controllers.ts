@@ -190,6 +190,64 @@ export const getWorkspaces = withGlobalErrorHandler(async (c: Context) => {
   );
 });
 
+export const getWorkspaceMember = withGlobalErrorHandler(async (c: Context) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param('workspaceId');
+
+  if (!workspaceId) {
+    return c.json(
+      handleResponse("error", "Missing param: workspace ID required."),
+      400
+    );
+  }
+
+  const { DATABASE_URL } = c.env;
+  if (!DATABASE_URL) {
+    return c.json(
+      handleResponse("error", "Server misconfiguration: Missing database url."),
+      500
+    );
+  }
+
+  const db = getDatabase(DATABASE_URL);
+  
+
+  const member = await db.workspaceMember.findFirst({
+    where: {
+      workspaceId,
+      userId: user.id,
+    },
+  });
+
+  
+  if (!member) {
+    throw new ExtError(
+      "Unauthorized: You are not a member of this workspace",
+      403
+    );
+  }
+
+
+  const members = await db.workspaceMember.findMany({
+    where: {
+      workspaceId
+    },
+    select: {
+      id: true,
+      role: true,
+      user: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    }
+  }); 
+
+  return c.json(handleResponse("success", "Application: Fetched workspace members succesfully.", members), 200);
+
+})
+
 export const deleteWorkspace = withGlobalErrorHandler(async (c: Context) => {
   const user = c.get("user");
   const workspaceId = c.req.param("workspaceId");

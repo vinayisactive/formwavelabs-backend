@@ -87,7 +87,7 @@ export const acceptInvitation = withGlobalErrorHandler(async (c: Context) => {
 
   if (!invitation) {
     return c.json(
-      handleResponse("success", "Server : Invitation is expired."),
+      handleResponse("error", "Server : Invitation is expired."),
       500
     );
   }
