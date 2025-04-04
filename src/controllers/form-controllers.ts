@@ -3,6 +3,7 @@ import { handleResponse } from "../utils/response-handler";
 import { getDatabase } from "../db/database";
 import { FormSchema } from "../utils/zod-schemas";
 import { withGlobalErrorHandler } from "../utils/global-error-handler";
+import axios from "axios";
 
 //form-routes (public)
 export const getForm = withGlobalErrorHandler(async (c: Context) => {
@@ -521,6 +522,19 @@ export const deleteForm = withGlobalErrorHandler(async (c: Context) => {
     );
   }
 
+  const tag = `FORM_${formId}`;
+  const url = `https://api.cloudinary.com/v1_1/${c.env.CLOUDINARY_CLOUD_NAME}/resources/image/tags/${tag}?resource_type=auto`;
+  const authHeader = `Basic ${btoa(
+    `${c.env.CLOUDINARY_API_KEY}:${c.env.CLOUDINARY_API_SECRET}`
+  )}`;
+
+  await axios.delete(url, {
+    headers: {
+      Authorization: authHeader,
+      "Content-Type": "application/json",
+    },
+  });
+
   return c.json(
     handleResponse("success", "Application: Form deleted successfully.", form),
     200
@@ -781,14 +795,14 @@ export const createNextPage = withGlobalErrorHandler(async (c: Context) => {
 
   const currentMaxPageRecord = await db.formPage.aggregate({
     where: {
-      formId
+      formId,
     },
     _max: {
-      page: true
-    }
-  }); 
+      page: true,
+    },
+  });
 
-  const currentMaxPage = currentMaxPageRecord._max.page || 0; 
+  const currentMaxPage = currentMaxPageRecord._max.page || 0;
 
   if (pageNumber !== currentMaxPage) {
     return c.json(
@@ -798,7 +812,7 @@ export const createNextPage = withGlobalErrorHandler(async (c: Context) => {
       ),
       400
     );
-  }; 
+  }
 
   const existingPage = await db.formPage.findFirst({
     where: {
