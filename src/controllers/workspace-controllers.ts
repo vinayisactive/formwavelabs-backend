@@ -4,6 +4,8 @@ import { handleResponse } from "../utils/response-handler";
 import { getDatabase } from "../db/database";
 import { v4 as uuidv4 } from "uuid";
 import ExtError from "../utils/ext-error";
+import axios from "axios";
+import { generateSignature } from "../utils/cloudinary-signature";
 
 export const createWorkspace = withGlobalErrorHandler(async (c: Context) => {
   const user = c.get("user");
@@ -105,11 +107,11 @@ export const getWorkspace = withGlobalErrorHandler(async (c: Context) => {
           id: true,
           title: true,
           status: true,
-          _count:{
-            select : {
+          _count: {
+            select: {
               pages: true,
               submissions: true,
-            }
+            },
           },
           description: true,
           createdAt: true,
@@ -192,7 +194,7 @@ export const getWorkspaces = withGlobalErrorHandler(async (c: Context) => {
 
 export const getWorkspaceMember = withGlobalErrorHandler(async (c: Context) => {
   const user = c.get("user");
-  const workspaceId = c.req.param('workspaceId');
+  const workspaceId = c.req.param("workspaceId");
 
   if (!workspaceId) {
     return c.json(
@@ -210,7 +212,6 @@ export const getWorkspaceMember = withGlobalErrorHandler(async (c: Context) => {
   }
 
   const db = getDatabase(DATABASE_URL);
-  
 
   const member = await db.workspaceMember.findFirst({
     where: {
@@ -219,7 +220,6 @@ export const getWorkspaceMember = withGlobalErrorHandler(async (c: Context) => {
     },
   });
 
-  
   if (!member) {
     throw new ExtError(
       "Unauthorized: You are not a member of this workspace",
@@ -227,10 +227,9 @@ export const getWorkspaceMember = withGlobalErrorHandler(async (c: Context) => {
     );
   }
 
-
   const members = await db.workspaceMember.findMany({
     where: {
-      workspaceId
+      workspaceId,
     },
     select: {
       id: true,
@@ -238,15 +237,21 @@ export const getWorkspaceMember = withGlobalErrorHandler(async (c: Context) => {
       user: {
         select: {
           id: true,
-          name: true
-        }
-      }
-    }
-  }); 
+          name: true,
+        },
+      },
+    },
+  });
 
-  return c.json(handleResponse("success", "Application: Fetched workspace members succesfully.", members), 200);
-
-})
+  return c.json(
+    handleResponse(
+      "success",
+      "Application: Fetched workspace members succesfully.",
+      members
+    ),
+    200
+  );
+});
 
 export const deleteWorkspace = withGlobalErrorHandler(async (c: Context) => {
   const user = c.get("user");
@@ -300,6 +305,19 @@ export const deleteWorkspace = withGlobalErrorHandler(async (c: Context) => {
     select: {
       id: true,
       name: true,
+    },
+  });
+
+  const tag = `WORKSPACE_${workspaceId}`;
+  const url = `https://api.cloudinary.com/v1_1/${c.env.CLOUDINARY_CLOUD_NAME}/resources/image/tags/${tag}?resource_type=auto`;
+  const authHeader = `Basic ${btoa(
+    `${c.env.CLOUDINARY_API_KEY}:${c.env.CLOUDINARY_API_SECRET}`
+  )}`;
+
+  await axios.delete(url, {
+    headers: {
+      Authorization: authHeader,
+      "Content-Type": "application/json",
     },
   });
 
@@ -391,6 +409,279 @@ export const updateWorkspace = withGlobalErrorHandler(async (c: Context) => {
     200
   );
 });
+
+export const addWorkspaceAsset = withGlobalErrorHandler(async (c: Context) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
+  const { assetUrl, assetPublicId } = await c.req.json();
+
+  if (!workspaceId) {
+    return c.json(
+      handleResponse("error", "Missing param: workspace ID required."),
+      400
+    );
+  }
+
+  if (!assetUrl) {
+    return c.json(
+      handleResponse("error", "Invalid input: Asset URL is missing."),
+      400
+    );
+  }
+
+  const { DATABASE_URL } = c.env;
+  if (!DATABASE_URL) {
+    return c.json(
+      handleResponse(
+        "error",
+        "Server misconfiguration: Missing database URL or RESEND key."
+      ),
+      500
+    );
+  }
+
+  const db = getDatabase(DATABASE_URL);
+  const MAX_ASSETS_PER_WORKSPACE = 10;
+
+  const member = await db.workspaceMember.findFirst({
+    where: {
+      workspaceId,
+      userId: user.id,
+    },
+  });
+
+  if (!member) {
+    return c.json(
+      handleResponse(
+        "error",
+        "Unauthorized: You are not a member of this workspace."
+      ),
+      403
+    );
+  }
+
+  if (!["OWNER", "ADMIN", "EDITOR"].includes(member.role)) {
+    return c.json(
+      handleResponse(
+        "error",
+        "Forbidden: Insufficient permissions to add assets."
+      ),
+      403
+    );
+  }
+
+  const existingAssets = await db.workspaceAssets.findMany({
+    where: { workspaceId },
+    select: { id: true },
+    take: MAX_ASSETS_PER_WORKSPACE,
+  });
+
+  if (existingAssets.length >= MAX_ASSETS_PER_WORKSPACE) {
+    return c.json(
+      handleResponse(
+        "error",
+        "Bad Request: Workspace already reached assets limit."
+      ),
+      400
+    );
+  }
+
+  const asset = await db.workspaceAssets.create({
+    data: {
+      workspaceId,
+      imageUrl: assetUrl,
+      imagePublicId: assetPublicId,
+    },
+  });
+
+  return c.json(
+    handleResponse(
+      "success",
+      "Application: Workspace Asset added successfully.",
+      asset
+    ),
+    200
+  );
+});
+
+export const getWorkspaceAssets = withGlobalErrorHandler(async (c: Context) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
+
+  if (!workspaceId) {
+    return c.json(
+      handleResponse("error", "Missing param: workspace ID required."),
+      400
+    );
+  }
+
+  const { DATABASE_URL } = c.env;
+  if (!DATABASE_URL) {
+    return c.json(
+      handleResponse(
+        "error",
+        "Server misconfiguration: Missing database URL or RESEND key."
+      ),
+      500
+    );
+  }
+
+  const db = getDatabase(DATABASE_URL);
+
+  const member = await db.workspaceMember.findFirst({
+    where: {
+      workspaceId,
+      userId: user.id,
+    },
+  });
+
+  if (!member) {
+    return c.json(
+      handleResponse(
+        "error",
+        "Unauthorized: You are not a member of this workspace."
+      ),
+      403
+    );
+  }
+
+  const assets = await db.workspaceAssets.findMany({
+    where: {
+      workspaceId,
+    },
+  });
+
+  return c.json(
+    handleResponse(
+      "success",
+      "Application: Fetched workspace successfully.",
+      assets
+    ),
+    200
+  );
+});
+
+export const deleteWorkspaceAsset = withGlobalErrorHandler(async (c: Context) => {
+    const user = c.get("user");
+    const workspaceId = c.req.param("workspaceId");
+    const assetId = c.req.query("assetId");
+
+    if (!assetId) {
+      return c.json(
+        handleResponse("error", "Asset ID is missing in query."),
+        400
+      );
+    }
+
+    if (!workspaceId) {
+      return c.json(
+        handleResponse("error", "Missing param: workspace ID required."),
+        400
+      );
+    }
+
+    const { DATABASE_URL, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = c.env;
+
+    if (!DATABASE_URL) {
+      return c.json(
+        handleResponse(
+          "error",
+          "Server misconfiguration: Missing database URL."
+        ),
+        500
+      );
+    }
+
+    if ( !CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
+      return c.json(
+        handleResponse(
+          "error",
+          "Server misconfiguration: Missing Cloudinary credentials."
+        ),
+        500
+      );
+    }
+
+    const db = getDatabase(DATABASE_URL);
+
+    const member = await db.workspaceMember.findFirst({
+      where: {
+        workspaceId,
+        userId: user.id,
+      },
+    });
+
+    if (!member) {
+      return c.json(
+        handleResponse(
+          "error",
+          "Unauthorized: You are not a member of this workspace."
+        ),
+        403
+      );
+    }
+
+    if (!["OWNER", "ADMIN", "EDITOR"].includes(member.role)) {
+      return c.json(
+        handleResponse(
+          "error",
+          "Forbidden: Insufficient permissions to delete assets."
+        ),
+        403
+      );
+    }
+
+    const asset = await db.workspaceAssets.findUnique({
+      where: {
+        workspaceId,
+        id: assetId,
+      },
+    });
+
+    if (!asset) {
+      return c.json(handleResponse("error", "Asset not found."), 404);
+    }
+
+    if (!asset.imagePublicId) {
+      return c.json(
+        handleResponse("error", "Asset has no associated image."),
+        400
+      );
+    }
+
+    const timestamp = Math.round(Date.now() / 1000);
+    const params = { timestamp, public_id: asset.imagePublicId };
+    const signature = await generateSignature(params, CLOUDINARY_API_SECRET);
+
+    const formData = new URLSearchParams();
+    formData.append("public_id", asset.imagePublicId);
+    formData.append("timestamp", timestamp.toString());
+    formData.append("api_key", CLOUDINARY_API_KEY);
+    formData.append("signature", signature);
+
+    await axios.post(
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/destroy`,
+      formData.toString(),
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      }
+    );
+
+    const deletedAsset = await db.workspaceAssets.delete({
+      where: {
+        workspaceId,
+        id: assetId,
+      },
+    });
+
+    return c.json(
+      handleResponse("success", "Asset deleted successfully.", deletedAsset),
+      200
+    );
+  }
+);
 
 export const inviteMember = withGlobalErrorHandler(async (c: Context) => {
   const user = c.get("user");
@@ -539,9 +830,9 @@ export const inviteMember = withGlobalErrorHandler(async (c: Context) => {
   );
 });
 
-export const getMemberRole = withGlobalErrorHandler(async(c: Context) => {
-  const user = c.get("user"); 
-  const workspaceId = c.req.param("workspaceId"); 
+export const getMemberRole = withGlobalErrorHandler(async (c: Context) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
 
   if (!workspaceId) {
     return c.json(
@@ -566,23 +857,29 @@ export const getMemberRole = withGlobalErrorHandler(async(c: Context) => {
   const member = await db.workspaceMember.findFirst({
     where: {
       workspaceId,
-      userId: user.id
-    }
-  }); 
-
+      userId: user.id,
+    },
+  });
 
   if (!member) {
-    return c.json(handleResponse(
-      "error", 
-      "Unauthorized: You are not a member of this workspace",
-      403
-    )); 
+    return c.json(
+      handleResponse(
+        "error",
+        "Unauthorized: You are not a member of this workspace",
+        403
+      )
+    );
   }
 
-  const role = member.role; 
+  const role = member.role;
 
-  return c.json(handleResponse("success", "Application: Role fetched successfully.", { role }), 200);
-})
+  return c.json(
+    handleResponse("success", "Application: Role fetched successfully.", {
+      role,
+    }),
+    200
+  );
+});
 
 export const leaveWorkspace = withGlobalErrorHandler(async (c: Context) => {
   const user = c.get("user");
