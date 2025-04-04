@@ -1,10 +1,14 @@
 import { Hono } from "hono";
 import { authMiddleware } from "../middlewares/auth-middleware";
+
 import {
+  addWorkspaceAsset,
   createWorkspace,
   deleteWorkspace,
+  deleteWorkspaceAsset,
   getMemberRole,
   getWorkspace,
+  getWorkspaceAssets,
   getWorkspaceMember,
   getWorkspaces,
   inviteMember,
@@ -12,6 +16,7 @@ import {
   removeMember,
   updateWorkspace,
 } from "../controllers/workspace-controllers";
+
 import {
   createForm,
   createNextPage,
@@ -32,6 +37,10 @@ workspaceRoutes
   .get("/:workspaceId", getWorkspace)
   .patch("/:workspaceId", updateWorkspace)
   .delete("/:workspaceId", deleteWorkspace)
+  
+  .get("/:workspaceId/assets", getWorkspaceAssets)
+  .post("/:workspaceId/assets", addWorkspaceAsset)
+  .delete("/:workspaceId/assets", deleteWorkspaceAsset)
 
   .get("/:workspaceId/members", getWorkspaceMember)
   .get("/:workspaceId/member/role", getMemberRole)
