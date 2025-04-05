@@ -33,6 +33,8 @@ export const trackFormVisit  = withGlobalErrorHandler(async(c: Context) => {
     }
   
     const db = getDatabase(DATABASE_URL); 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     await db.$transaction(async(t) => {
         await t.formVisit.create({
@@ -59,7 +61,24 @@ export const trackFormVisit  = withGlobalErrorHandler(async(c: Context) => {
                 mobileVisits: deviceType === "MOBILE" ? {increment: 1} : undefined,
                 desktopVisits: deviceType === "DESKTOP" ? {increment: 1} : undefined
             }
-        })
+        }); 
+
+        await t.dailyAnalyticsSummary.upsert({
+          where: {
+            formId_createdAt: {
+              formId,
+              createdAt: today
+            }
+          },
+          create: {
+              formId,
+              totalVisit: 1,
+              createdAt: today
+          },
+          update:{
+            totalVisit: {increment : 1}
+          }
+        }); 
     }); 
     
     return c.json(handleResponse("success", "Tracked a visit successfully"), 200); 
@@ -103,6 +122,32 @@ export const fetchFormAnalytics  = withGlobalErrorHandler(async(c: Context) => {
 
      const conversionRate = analyticsData?.totalVisits > 0 ? (submissionCount / analyticsData?.totalVisits) * 100 : 0;
 
+     const today = new Date();
+    
+      const startDate = new Date(today); 
+      startDate.setDate(today.getDate() - 6); 
+      startDate.setHours(0,0,0,0); 
+
+      const endDate = new Date(today); 
+
+      const recentDailyAnalytics  = await db.dailyAnalyticsSummary.findMany({
+        where: {
+          formId,
+          createdAt: {
+            gte: startDate,
+            lte: endDate
+          }
+        },
+        select: {
+          createdAt: true,
+          totalVisit: true,
+          totalSubmissions: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }); 
+
      return c.json(handleResponse("success", "Form analytics data fetched successfully.", {
         formId,
         totalVisits: analyticsData.totalVisits,
@@ -111,6 +156,7 @@ export const fetchFormAnalytics  = withGlobalErrorHandler(async(c: Context) => {
         deviceBreakdown: {
           mobile: analyticsData.mobileVisits,
           desktop: analyticsData.desktopVisits
-        }
+        },
+        recentDailyAnalytics
     }), 200); 
 });
