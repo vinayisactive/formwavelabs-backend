@@ -3,7 +3,7 @@ import { handleResponse } from "../utils/response-handler";
 import { getDatabase } from "../db/database";
 import { FormSchema } from "../utils/zod-schemas";
 import { withGlobalErrorHandler } from "../utils/global-error-handler";
-import axios from "axios";
+import { deleteCloudinaryResource } from "../utils/cloudinary-resource-destroy";
 
 //form-routes (public)
 export const getForm = withGlobalErrorHandler(async (c: Context) => {
@@ -449,10 +449,10 @@ export const deleteForm = withGlobalErrorHandler(async (c: Context) => {
     );
   }
 
-  const { DATABASE_URL } = c.env;
-  if (!DATABASE_URL) {
+  const { DATABASE_URL, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, CLOUDINARY_CLOUD_NAME } = c.env;
+  if (!DATABASE_URL || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET || !CLOUDINARY_CLOUD_NAME) {
     return c.json(
-      handleResponse("error", "Server misconfiguration: Missing database url."),
+      handleResponse("error", "Server misconfiguration: Missing environment variables.."),
       500
     );
   }
@@ -522,18 +522,23 @@ export const deleteForm = withGlobalErrorHandler(async (c: Context) => {
     );
   }
 
-  const tag = `FORM_${formId}`;
-  const url = `https://api.cloudinary.com/v1_1/${c.env.CLOUDINARY_CLOUD_NAME}/resources/image/tags/${tag}?resource_type=auto`;
-  const authHeader = `Basic ${btoa(
-    `${c.env.CLOUDINARY_API_KEY}:${c.env.CLOUDINARY_API_SECRET}`
-  )}`;
+  await deleteCloudinaryResource({
+    id: form.id,
+    type: "FORM",
+    resourceType: "image",
+    cloudName: CLOUDINARY_CLOUD_NAME,
+    apiKey: CLOUDINARY_API_KEY,
+    apiSecret: CLOUDINARY_API_SECRET
+  }); 
 
-  await axios.delete(url, {
-    headers: {
-      Authorization: authHeader,
-      "Content-Type": "application/json",
-    },
-  });
+  await deleteCloudinaryResource({
+    id: form.id,
+    type: "FORM",
+    resourceType: "raw",
+    cloudName: CLOUDINARY_CLOUD_NAME,
+    apiKey: CLOUDINARY_API_KEY,
+    apiSecret: CLOUDINARY_API_SECRET
+  }); 
 
   return c.json(
     handleResponse("success", "Application: Form deleted successfully.", form),
