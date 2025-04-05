@@ -927,6 +927,26 @@ export const submitForm = withGlobalErrorHandler(async (c: Context) => {
     );
   }
 
+  const today = new Date(); 
+  today.setHours(0,0,0,0); 
+
+  await db.dailyAnalyticsSummary.upsert({
+    where: {
+      formId_createdAt: {
+        formId,
+        createdAt: today
+      }
+    },
+    create: {
+      formId,
+      createdAt: today,
+      totalSubmissions: 1
+    },
+    update: {
+      totalSubmissions: {increment: 1}
+    }
+  })
+
   return c.json(
     handleResponse(
       "success",
