@@ -105,6 +105,7 @@ model Form {
   submissions Submission[]
   visits FormVisit[]
   analyticsSummary FormAnalyticsSummary? 
+  dailyAnalyticsSummary DailyAnalyticsSummary []
 
   @@index([workspaceId])
   @@index([status])
@@ -163,4 +164,16 @@ model FormAnalyticsSummary {
   desktopVisits Int @default(0)
 
   form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+}
+
+model DailyAnalyticsSummary {
+  id String @id @default(uuid())
+  formId String
+  createdAt DateTime @default(now())
+  totalVisit Int @default(0)
+  totalSubmissions Int @default(0)
+  
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+    
+  @@unique([formId, createdAt])
 }
