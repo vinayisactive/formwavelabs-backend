@@ -5,6 +5,11 @@ import { FormSchema } from "../utils/zod-schemas";
 import { withGlobalErrorHandler } from "../utils/global-error-handler";
 import { deleteCloudinaryResource } from "../utils/cloudinary-resource-destroy";
 
+interface CursorCondition {
+  cursor?: { id: string };
+  skip?: number;
+}
+
 //form-routes (public)
 export const getForm = withGlobalErrorHandler(async (c: Context) => {
   const formId = c.req.param("formId");
@@ -653,6 +658,10 @@ export const getFormResponses = withGlobalErrorHandler(async (c: Context) => {
   const formId = c.req.param("formId");
   const workspaceId = c.req.param("workspaceId");
 
+  const fromDate = c.req.query("from"); 
+  const tillDate = c.req.query("till"); 
+  const cursor = c.req.query("cursor"); 
+
   if (!formId) {
     return c.json(
       handleResponse("error", "Missing param: Form ID is missing."),
@@ -666,6 +675,33 @@ export const getFormResponses = withGlobalErrorHandler(async (c: Context) => {
       400
     );
   }
+
+  const dateFilter : {
+    createdAt?: {}
+  } = {}
+
+  if (fromDate && !isNaN(Date.parse(fromDate))) {
+    dateFilter.createdAt = {
+      ...dateFilter.createdAt,
+      gte: new Date(fromDate),
+    };
+  }
+  
+  if (tillDate && !isNaN(Date.parse(tillDate))) {
+    const till = new Date(tillDate);
+    till.setHours(23, 59, 59, 999);
+    dateFilter.createdAt = {
+      ...dateFilter.createdAt,
+      lte: till,
+    };
+  }
+
+  const cursorCondition: CursorCondition = cursor
+    ? { 
+        cursor: { id: cursor },
+        skip: 1
+      }
+    : {};
 
   const { DATABASE_URL } = c.env;
   if (!DATABASE_URL) {
@@ -691,31 +727,31 @@ export const getFormResponses = withGlobalErrorHandler(async (c: Context) => {
     );
   }
 
-  const form = await db.form.findFirst({
+  const submissions = await db.submission.findMany({
     where: {
-      id: formId,
-      workspaceId,
+      formId,
+      ...dateFilter
     },
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      submissions: true,
+    orderBy: {
+      createdAt: 'desc'
     },
+    take: 50,
+    ...cursorCondition
   });
 
-  if (!form) {
-    return c.json(
-      handleResponse(
-        "error",
-        "Application: The form or its submissions either do not exist or do not belong to this workspace."
-      ),
-      404
-    );
-  }
+  const lastSubmission = submissions[submissions.length - 1]
+  const nextCursor = lastSubmission?.id;
+
+  const hasMore = submissions.length === 50; 
 
   return c.json(
-    handleResponse("success", "Application: Form responses fetched.", form),
+    handleResponse("success", "Application: Form responses fetched.", {
+      submissions,
+      pagination: {
+        nextCursor,
+        hasMore
+      }
+    }),
     200
   );
 });
